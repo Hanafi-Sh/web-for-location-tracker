@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Radar Pelacak Siluman</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; }
+        #map { width: 100vw; height: 100vh; }
+        .info { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 999; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+    </style>
+</head>
+<body>
+    <div class="info" id="status">Mencari sinyal target...</div>
+    <div id="map"></div>
+
+    <script>
+        // Memulai Peta (Set awal di Jakarta)
+        var map = L.map('map').setView([-6.200000, 106.816666], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        var marker;
+
+        // Fungsi untuk mengambil data dari API Vercel kita sendiri
+        async function ambilLokasi() {
+            try {
+                const response = await fetch('/api/lokasi');
+                const data = await response.json();
+
+                if (data.lat && data.lon) {
+                    document.getElementById('status').innerText = `Target Terlacak! Terakhir update: ${data.waktu}`;
+                    
+                    // Pindahkan peta dan marker ke lokasi baru
+                    map.setView([data.lat, data.lon], 16);
+                    if (marker) {
+                        marker.setLatLng([data.lat, data.lon]);
+                    } else {
+                        marker = L.marker([data.lat, data.lon]).addTo(map);
+                    }
+                }
+            } catch (error) {
+                console.error("Gagal mengambil data", error);
+            }
+        }
+
+        // Refresh peta setiap 10 detik
+        setInterval(ambilLokasi, 10000);
+        ambilLokasi(); // Panggil sekali saat web pertama kali dibuka
+    </script>
+</body>
+</html>
