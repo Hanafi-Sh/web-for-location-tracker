@@ -32,6 +32,27 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
+        // --- FITUR BARU: Fungsi untuk menembak API hapus ---
+        window.hapusTarget = async function(idTarget, namaTarget) {
+            const konfirmasi = confirm(`Tembak jatuh dan hapus "${namaTarget}" dari radar?`);
+            if (konfirmasi) {
+                try {
+                    await fetch(`/api/hapus?id=${idTarget}`);
+                    
+                    // Hilangkan titik dari peta seketika
+                    if (semuaMarker[idTarget]) {
+                        map.removeLayer(semuaMarker[idTarget]);
+                        delete semuaMarker[idTarget];
+                    }
+                    tambahLog(`💥 Target dihapus: ${namaTarget}`);
+                    ambilLokasi(); // Segarkan jumlah perangkat
+                } catch (error) {
+                    tambahLog(`⚠️ Gagal menghapus target.`);
+                }
+            }
+        }
+        // ---------------------------------------------------
+
         async function ambilLokasi() {
             try {
                 const response = await fetch('/api/lokasi');
@@ -52,12 +73,21 @@
                         const info = dataPerangkat[idTarget];
                         
                         if (info.lat && info.lon) {
+                            // Membuat isi kotak info (Popup) beserta tombol hapusnya
+                            const isiPopup = `
+                                <div style="text-align:center;">
+                                    <b>${info.nama}</b><br>
+                                    <span style="font-size: 12px; color: gray;">Update: ${info.waktu}</span><br>
+                                    <button onclick="hapusTarget('${idTarget}', '${info.nama}')" style="margin-top: 8px; background: red; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">❌ Hapus</button>
+                                </div>
+                            `;
+
                             if (semuaMarker[idTarget]) {
                                 semuaMarker[idTarget].setLatLng([info.lat, info.lon]);
-                                semuaMarker[idTarget].getPopup().setContent(`<b>${info.nama}</b><br>Update: ${info.waktu}`);
+                                semuaMarker[idTarget].getPopup().setContent(isiPopup);
                             } else {
                                 const markerBaru = L.marker([info.lat, info.lon]).addTo(map);
-                                markerBaru.bindPopup(`<b>${info.nama}</b><br>Update: ${info.waktu}`).openPopup();
+                                markerBaru.bindPopup(isiPopup).openPopup();
                                 semuaMarker[idTarget] = markerBaru;
                                 tambahLog(`+ Perangkat terdeteksi: ${info.nama}`);
                             }
