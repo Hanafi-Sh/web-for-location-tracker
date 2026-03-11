@@ -5,11 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        body { margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; display: flex; height: 100vh; background: #111; color: #fff; }
+        body { margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; display: flex; height: 100vh; background: #111; color: #fff; overflow: hidden; }
         
-        /* Layout Pembagian Layar */
-        #sidebar { width: 320px; background: #1a1a1a; display: flex; flex-direction: column; border-right: 2px solid #333; z-index: 1000; }
+        /* Layout & Animasi Sidebar */
+        #sidebar { 
+            width: 320px; 
+            background: #1a1a1a; 
+            display: flex; 
+            flex-direction: column; 
+            border-right: 2px solid #333; 
+            z-index: 1000; 
+            transition: margin-left 0.3s ease, height 0.3s ease; /* Efek meluncur mulus */
+        }
+        #sidebar.collapsed { 
+            margin-left: -320px; /* Menyembunyikan dashboard ke samping kiri */
+        }
         #map { flex-grow: 1; height: 100vh; z-index: 1; }
+        
+        /* Tombol Buka/Tutup Dashboard */
+        #toggleBtn { 
+            position: absolute; 
+            top: 15px; 
+            right: 15px; 
+            z-index: 2000; 
+            background: #222; 
+            color: #00ff00; 
+            border: 1px solid #00ff00; 
+            padding: 8px 15px; 
+            cursor: pointer; 
+            border-radius: 5px; 
+            font-family: inherit; 
+            font-weight: bold; 
+            transition: 0.3s; 
+            box-shadow: 0 0 10px rgba(0,255,0,0.2); 
+        }
+        #toggleBtn:hover { background: #00ff00; color: #000; }
         
         /* Elemen Dashboard */
         .header { padding: 15px; background: #000; text-align: center; border-bottom: 1px solid #333; }
@@ -36,14 +66,18 @@
         /* Log Area */
         #logArea { font-size: 12px; color: #00ff00; line-height: 1.5; }
         
+        /* Tampilan Khusus HP */
         @media (max-width: 768px) {
             body { flex-direction: column; }
             #sidebar { width: 100%; height: 40vh; border-right: none; border-bottom: 2px solid #333; }
+            #sidebar.collapsed { margin-left: 0; height: 0; border-bottom: none; overflow: hidden; } /* Di HP, sembunyi ke atas */
             #map { height: 60vh; }
         }
     </style>
 </head>
 <body>
+
+    <button id="toggleBtn" onclick="toggleSidebar()">☰ MENU</button>
 
     <div id="sidebar">
         <div class="header">
@@ -57,12 +91,8 @@
             <button class="tab-btn" onclick="bukaTab('logTab', this)">LOGS</button>
         </div>
 
-        <div id="aktifTab" class="content-area active">
-            </div>
-
-        <div id="trashTab" class="content-area">
-            </div>
-
+        <div id="aktifTab" class="content-area active"></div>
+        <div id="trashTab" class="content-area"></div>
         <div id="logTab" class="content-area">
             <div id="logArea">Sistem Diinisialisasi...<br></div>
         </div>
@@ -72,21 +102,27 @@
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-        // Inisialisasi Peta
         var map = L.map('map').setView([-6.200000, 106.816666], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
         var semuaMarker = {}; 
 
-        // Fungsi Ganti Tab
+        // --- FITUR BARU: Menutup/Membuka Sidebar ---
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+            
+            // Memberi waktu 0.3 detik agar animasi CSS selesai, lalu paksa peta menyesuaikan ukuran
+            setTimeout(() => { map.invalidateSize(); }, 300);
+        }
+        // -------------------------------------------
+
         function bukaTab(tabId, elemenTombol) {
             document.querySelectorAll('.content-area').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
             elemenTombol.classList.add('active');
-            if(tabId === 'trashTab') ambilDataTrash(); // Muat data trash saat tab dibuka
+            if(tabId === 'trashTab') ambilDataTrash(); 
         }
 
-        // Fungsi Log
         function tambahLog(pesan) {
             const logBox = document.getElementById('logArea');
             const waktu = new Date().toLocaleTimeString('id-ID');
@@ -94,14 +130,12 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        // Fokus ke titik di peta
         function fokusKeTarget(lat, lon) {
             map.flyTo([lat, lon], 16, { animate: true, duration: 1 });
         }
 
-        // Fungsi Pindah ke Trash (Soft Delete)
         window.pindahKeTrash = async function(idTarget, namaTarget, event) {
-            event.stopPropagation(); // Mencegah klik men-trigger flyTo
+            event.stopPropagation(); 
             const konfirmasi = confirm(`Pindahkan "${namaTarget}" ke Trash?`);
             if (konfirmasi) {
                 try {
@@ -111,14 +145,13 @@
                         delete semuaMarker[idTarget];
                     }
                     tambahLog(`⚠️ ${namaTarget} dipindah ke Trash.`);
-                    ambilLokasi(); // Segarkan list aktif
+                    ambilLokasi(); 
                 } catch (error) {
                     tambahLog(`❌ Gagal menghapus.`);
                 }
             }
         }
 
-        // Mengambil Data Aktif
         async function ambilLokasi() {
             try {
                 const response = await fetch('/api/lokasi');
@@ -133,7 +166,6 @@
                 for (const idTarget in dataPerangkat) {
                     const info = dataPerangkat[idTarget];
                     if (info.lat && info.lon) {
-                        // Perbarui titik di peta
                         if (semuaMarker[idTarget]) {
                             semuaMarker[idTarget].setLatLng([info.lat, info.lon]);
                             semuaMarker[idTarget].getPopup().setContent(`<b>${info.nama}</b><br>Update: ${info.waktu}`);
@@ -144,7 +176,6 @@
                             tambahLog(`+ Terdeteksi: ${info.nama}`);
                         }
 
-                        // Buat Kartu di Dashboard (Bisa diklik untuk fokus)
                         htmlAktif += `
                             <div class="device-card" onclick="fokusKeTarget(${info.lat}, ${info.lon})">
                                 <div class="device-name">${info.nama}</div>
@@ -162,7 +193,6 @@
             }
         }
 
-        // Mengambil Data Trash
         async function ambilDataTrash() {
             try {
                 const response = await fetch('/api/trash');
@@ -185,7 +215,7 @@
             }
         }
 
-        setInterval(ambilLokasi, 5000); // Update peta tiap 5 detik
+        setInterval(ambilLokasi, 5000); 
         ambilLokasi();
     </script>
 </body>
