@@ -125,7 +125,8 @@
 
         function tambahLog(pesan) {
             const logBox = document.getElementById('logArea');
-            const waktu = new Date().toLocaleTimeString('id-ID');
+            // Memaksa log layar menggunakan jam Jakarta
+            const waktu = new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' });
             logBox.innerHTML += `[${waktu}] ${pesan}<br>`;
             logBox.scrollTop = logBox.scrollHeight;
         }
