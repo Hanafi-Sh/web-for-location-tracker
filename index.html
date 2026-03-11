@@ -1,107 +1,191 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Radar Pelacak Siluman</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <title>Pusat Komando Radar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        body { margin: 0; padding: 0; font-family: sans-serif; }
-        #map { width: 100vw; height: 100vh; }
-        .info { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 999; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-weight: bold;}
-        /* Kotak Terminal Baru */
-        #logBox { position: absolute; bottom: 20px; left: 20px; z-index: 999; background: rgba(0,0,0,0.8); color: #00FF00; padding: 10px; font-family: monospace; font-size: 12px; border-radius: 5px; width: 300px; height: 150px; overflow-y: auto; border: 1px solid #00FF00; }
+        body { margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; display: flex; height: 100vh; background: #111; color: #fff; }
+        
+        /* Layout Pembagian Layar */
+        #sidebar { width: 320px; background: #1a1a1a; display: flex; flex-direction: column; border-right: 2px solid #333; z-index: 1000; }
+        #map { flex-grow: 1; height: 100vh; z-index: 1; }
+        
+        /* Elemen Dashboard */
+        .header { padding: 15px; background: #000; text-align: center; border-bottom: 1px solid #333; }
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 5px; font-weight: bold; background: #333; }
+        
+        /* Navigasi Tab */
+        .tabs { display: flex; border-bottom: 1px solid #333; }
+        .tab-btn { flex: 1; padding: 10px; background: #222; color: gray; border: none; cursor: pointer; font-family: inherit; font-weight: bold; transition: 0.3s; }
+        .tab-btn.active { background: #333; color: #00ff00; border-bottom: 2px solid #00ff00; }
+        
+        /* Area Konten (Daftar & Log) */
+        .content-area { flex-grow: 1; overflow-y: auto; padding: 10px; display: none; }
+        .content-area.active { display: block; }
+        
+        /* Kartu Perangkat */
+        .device-card { background: #2a2a2a; margin-bottom: 10px; padding: 10px; border-radius: 5px; border-left: 4px solid #00ff00; cursor: pointer; transition: 0.2s; }
+        .device-card:hover { background: #333; }
+        .device-card.trash-card { border-left-color: red; cursor: default; }
+        .device-card .device-name { font-size: 16px; font-weight: bold; color: #fff; }
+        .device-card .device-time { font-size: 12px; color: #aaa; margin-top: 5px; }
+        .action-btn { margin-top: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; border: none; border-radius: 3px; font-family: inherit; }
+        .btn-del { background: #cc0000; color: white; }
+        
+        /* Log Area */
+        #logArea { font-size: 12px; color: #00ff00; line-height: 1.5; }
+        
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            #sidebar { width: 100%; height: 40vh; border-right: none; border-bottom: 2px solid #333; }
+            #map { height: 60vh; }
+        }
     </style>
 </head>
 <body>
-    <div class="info" id="status">🔴 Sistem Offline / Menunggu Data</div>
-    <div id="logBox">
-        <div>> Memulai Radar Vercel...</div>
-        <div>> Menunggu sinyal dari target...</div>
+
+    <div id="sidebar">
+        <div class="header">
+            <h2>COMMAND CENTER</h2>
+            <div id="statusBadge" class="status-badge">Menghubungkan...</div>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="bukaTab('aktifTab', this)">AKTIF</button>
+            <button class="tab-btn" onclick="bukaTab('trashTab', this)">TRASH</button>
+            <button class="tab-btn" onclick="bukaTab('logTab', this)">LOGS</button>
+        </div>
+
+        <div id="aktifTab" class="content-area active">
+            </div>
+
+        <div id="trashTab" class="content-area">
+            </div>
+
+        <div id="logTab" class="content-area">
+            <div id="logArea">Sistem Diinisialisasi...<br></div>
+        </div>
     </div>
+
     <div id="map"></div>
 
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
+        // Inisialisasi Peta
         var map = L.map('map').setView([-6.200000, 106.816666], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
         var semuaMarker = {}; 
 
+        // Fungsi Ganti Tab
+        function bukaTab(tabId, elemenTombol) {
+            document.querySelectorAll('.content-area').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            elemenTombol.classList.add('active');
+            if(tabId === 'trashTab') ambilDataTrash(); // Muat data trash saat tab dibuka
+        }
+
+        // Fungsi Log
         function tambahLog(pesan) {
-            const logBox = document.getElementById('logBox');
+            const logBox = document.getElementById('logArea');
             const waktu = new Date().toLocaleTimeString('id-ID');
-            logBox.innerHTML += `<div>[${waktu}] ${pesan}</div>`;
+            logBox.innerHTML += `[${waktu}] ${pesan}<br>`;
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        // --- FITUR BARU: Fungsi untuk menembak API hapus ---
-        window.hapusTarget = async function(idTarget, namaTarget) {
-            const konfirmasi = confirm(`Tembak jatuh dan hapus "${namaTarget}" dari radar?`);
+        // Fokus ke titik di peta
+        function fokusKeTarget(lat, lon) {
+            map.flyTo([lat, lon], 16, { animate: true, duration: 1 });
+        }
+
+        // Fungsi Pindah ke Trash (Soft Delete)
+        window.pindahKeTrash = async function(idTarget, namaTarget, event) {
+            event.stopPropagation(); // Mencegah klik men-trigger flyTo
+            const konfirmasi = confirm(`Pindahkan "${namaTarget}" ke Trash?`);
             if (konfirmasi) {
                 try {
                     await fetch(`/api/hapus?id=${idTarget}`);
-                    
-                    // Hilangkan titik dari peta seketika
                     if (semuaMarker[idTarget]) {
                         map.removeLayer(semuaMarker[idTarget]);
                         delete semuaMarker[idTarget];
                     }
-                    tambahLog(`💥 Target dihapus: ${namaTarget}`);
-                    ambilLokasi(); // Segarkan jumlah perangkat
+                    tambahLog(`⚠️ ${namaTarget} dipindah ke Trash.`);
+                    ambilLokasi(); // Segarkan list aktif
                 } catch (error) {
-                    tambahLog(`⚠️ Gagal menghapus target.`);
+                    tambahLog(`❌ Gagal menghapus.`);
                 }
             }
         }
-        // ---------------------------------------------------
 
+        // Mengambil Data Aktif
         async function ambilLokasi() {
             try {
                 const response = await fetch('/api/lokasi');
                 const dataPerangkat = await response.json(); 
+                const boxAktif = document.getElementById('aktifTab');
+                let htmlAktif = '';
                 
-                if (dataPerangkat.error) {
-                    tambahLog(`⚠️ Error: ${dataPerangkat.error}`);
-                    return; 
-                }
+                let jumlahAktif = Object.keys(dataPerangkat).length;
+                document.getElementById('statusBadge').innerText = jumlahAktif > 0 ? `🟢 ${jumlahAktif} TARGET AKTIF` : `🔴 MENUNGGU TARGET`;
+                document.getElementById('statusBadge').style.color = jumlahAktif > 0 ? "#00ff00" : "red";
 
-                let jumlahPerangkat = Object.keys(dataPerangkat).length;
-                
-                if (jumlahPerangkat > 0) {
-                    document.getElementById('status').innerText = `🟢 MELACAK ${jumlahPerangkat} PERANGKAT AKTIF`;
-                    document.getElementById('status').style.color = "green";
-
-                    for (const idTarget in dataPerangkat) {
-                        const info = dataPerangkat[idTarget];
-                        
-                        if (info.lat && info.lon) {
-                            // Membuat isi kotak info (Popup) beserta tombol hapusnya
-                            const isiPopup = `
-                                <div style="text-align:center;">
-                                    <b>${info.nama}</b><br>
-                                    <span style="font-size: 12px; color: gray;">Update: ${info.waktu}</span><br>
-                                    <button onclick="hapusTarget('${idTarget}', '${info.nama}')" style="margin-top: 8px; background: red; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">❌ Hapus</button>
-                                </div>
-                            `;
-
-                            if (semuaMarker[idTarget]) {
-                                semuaMarker[idTarget].setLatLng([info.lat, info.lon]);
-                                semuaMarker[idTarget].getPopup().setContent(isiPopup);
-                            } else {
-                                const markerBaru = L.marker([info.lat, info.lon]).addTo(map);
-                                markerBaru.bindPopup(isiPopup).openPopup();
-                                semuaMarker[idTarget] = markerBaru;
-                                tambahLog(`+ Perangkat terdeteksi: ${info.nama}`);
-                            }
+                for (const idTarget in dataPerangkat) {
+                    const info = dataPerangkat[idTarget];
+                    if (info.lat && info.lon) {
+                        // Perbarui titik di peta
+                        if (semuaMarker[idTarget]) {
+                            semuaMarker[idTarget].setLatLng([info.lat, info.lon]);
+                            semuaMarker[idTarget].getPopup().setContent(`<b>${info.nama}</b><br>Update: ${info.waktu}`);
+                        } else {
+                            const markerBaru = L.marker([info.lat, info.lon]).addTo(map);
+                            markerBaru.bindPopup(`<b>${info.nama}</b><br>Update: ${info.waktu}`);
+                            semuaMarker[idTarget] = markerBaru;
+                            tambahLog(`+ Terdeteksi: ${info.nama}`);
                         }
+
+                        // Buat Kartu di Dashboard (Bisa diklik untuk fokus)
+                        htmlAktif += `
+                            <div class="device-card" onclick="fokusKeTarget(${info.lat}, ${info.lon})">
+                                <div class="device-name">${info.nama}</div>
+                                <div class="device-time">📍 Lat: ${info.lat.toFixed(4)}, Lon: ${info.lon.toFixed(4)}<br>⏱ Terakhir: ${info.waktu}</div>
+                                <button class="action-btn btn-del" onclick="pindahKeTrash('${idTarget}', '${info.nama}', event)">Pindah ke Trash</button>
+                            </div>
+                        `;
                     }
-                } else {
-                    document.getElementById('status').innerText = "🔴 Sistem Aktif / Menunggu Data Perangkat";
                 }
+                
+                boxAktif.innerHTML = htmlAktif || "<div style='color:gray; text-align:center;'>Tidak ada target aktif</div>";
+                
             } catch (error) {
-                tambahLog(`⚠️ Koneksi Peta Error: ${error.message}`);
+                tambahLog(`❌ Sinkronisasi gagal.`);
             }
         }
 
-        setInterval(ambilLokasi, 5000);
+        // Mengambil Data Trash
+        async function ambilDataTrash() {
+            try {
+                const response = await fetch('/api/trash');
+                const dataTrash = await response.json();
+                const boxTrash = document.getElementById('trashTab');
+                let htmlTrash = '';
+
+                for (const idTarget in dataTrash) {
+                    const info = dataTrash[idTarget];
+                    htmlTrash += `
+                        <div class="device-card trash-card">
+                            <div class="device-name">${info.nama} (Dihapus)</div>
+                            <div class="device-time">Lokasi Terakhir:<br>📍 ${info.lat.toFixed(4)}, ${info.lon.toFixed(4)}<br>⏱ ${info.waktu}</div>
+                        </div>
+                    `;
+                }
+                boxTrash.innerHTML = htmlTrash || "<div style='color:gray; text-align:center;'>Trash kosong</div>";
+            } catch (error) {
+                console.error("Gagal memuat trash");
+            }
+        }
+
+        setInterval(ambilLokasi, 5000); // Update peta tiap 5 detik
         ambilLokasi();
     </script>
 </body>
