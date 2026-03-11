@@ -1,36 +1,32 @@
 export default async function handler(req, res) {
-    // Sekarang menerima 'id' dan 'nama'
     const { id, nama, lat, lon } = req.query; 
-    
     const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
     const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
-    if (!url || !token) return res.status(500).json({ error: "Brankas Upstash belum terhubung!" });
+    if (!url || !token) return res.status(500).json({ error: "Database belum terhubung" });
     
-    // Wajib ada ID, Lat, dan Lon
+    // Wajib ada id, lat, dan lon
     if (id && lat && lon) {
-        // Jika nama kosong, gunakan ID sebagai nama
-        const namaTarget = nama ? decodeURIComponent(nama) : id;
-        
+        const namaPerangkat = nama ? decodeURIComponent(nama) : id;
         const data = {
-            nama: namaTarget,
+            nama: namaPerangkat,
             lat: parseFloat(lat),
             lon: parseFloat(lon),
             waktu: new Date().toLocaleTimeString('id-ID')
         };
         
         try {
-            // HSET: Menyimpan data ke dalam laci khusus berdasarkan ID HP
-            await fetch(`${url}/hset/semuaTarget/${id}`, {
+            // Menggunakan folder baru 'data_perangkat' agar tidak bentrok dengan data lama
+            await fetch(`${url}/hset/data_perangkat/${id}`, {
                 headers: { Authorization: `Bearer ${token}` },
                 body: JSON.stringify(data),
                 method: 'POST',
             });
-            res.status(200).json({ pesan: `Lokasi ${namaTarget} diamankan!`, data });
+            res.status(200).json({ pesan: `Data ${namaPerangkat} berhasil disimpan`, data });
         } catch (e) {
-            res.status(500).json({ error: "Gagal menyimpan ke brankas" });
+            res.status(500).json({ error: "Gagal menyimpan ke database" });
         }
     } else {
-        res.status(400).json({ error: "Data tidak lengkap. Butuh id, lat, lon." });
+        res.status(400).json({ error: "Parameter id, lat, dan lon wajib diisi." });
     }
 }
