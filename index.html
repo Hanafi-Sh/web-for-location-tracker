@@ -23,46 +23,54 @@
     <script>
         var map = L.map('map').setView([-6.200000, 106.816666], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-        var marker;
-        var waktuTerakhir = null;
+        
+        // Memori untuk menyimpan banyak marker
+        var semuaMarker = {}; 
 
         function tambahLog(pesan) {
             const logBox = document.getElementById('logBox');
             const waktu = new Date().toLocaleTimeString('id-ID');
             logBox.innerHTML += `<div>[${waktu}] ${pesan}</div>`;
-            logBox.scrollTop = logBox.scrollHeight; // Auto scroll ke bawah
+            logBox.scrollTop = logBox.scrollHeight;
         }
 
         async function ambilLokasi() {
             try {
                 const response = await fetch('/api/lokasi');
-                const data = await response.json();
+                const dataPasukan = await response.json(); // Sekarang bentuknya objek banyak orang
+                
+                let jumlahPasukan = Object.keys(dataPasukan).length;
+                
+                if (jumlahPasukan > 0) {
+                    document.getElementById('status').innerText = `🟢 MELACAK ${jumlahPasukan} TARGET AKTIF`;
+                    document.getElementById('status').style.color = "green";
 
-                if (data.lat && data.lon) {
-                    // Cek apakah ini data baru atau data lama
-                    if (data.waktu !== waktuTerakhir) {
-                        waktuTerakhir = data.waktu;
-                        document.getElementById('status').innerText = `🟢 TARGET TERKUNCI! (Update: ${data.waktu})`;
-                        document.getElementById('status').style.color = "green";
+                    // Looping (memeriksa) setiap orang di dalam data
+                    for (const idTarget in dataPasukan) {
+                        const info = dataPasukan[idTarget];
                         
-                        tambahLog(`Sinyal diterima! Lat: ${data.lat.toFixed(4)}, Lon: ${data.lon.toFixed(4)}`);
-                        
-                        map.setView([data.lat, data.lon], 16);
-                        if (marker) {
-                            marker.setLatLng([data.lat, data.lon]);
+                        if (semuaMarker[idTarget]) {
+                            // Jika marker sudah ada, geser saja titiknya
+                            semuaMarker[idTarget].setLatLng([info.lat, info.lon]);
+                            semuaMarker[idTarget].getPopup().setContent(`<b>${info.nama}</b><br>Update: ${info.waktu}`);
                         } else {
-                            marker = L.marker([data.lat, data.lon]).addTo(map);
+                            // Jika ini target baru, buat titik baru di peta
+                            const markerBaru = L.marker([info.lat, info.lon]).addTo(map);
+                            markerBaru.bindPopup(`<b>${info.nama}</b><br>Update: ${info.waktu}`).openPopup();
+                            semuaMarker[idTarget] = markerBaru;
+                            
+                            tambahLog(`+ Target baru terdeteksi: ${info.nama}`);
                         }
                     }
                 } else {
-                    tambahLog("Ping server... Data masih kosong.");
+                    document.getElementById('status').innerText = "🔴 Radar Aktif / Menunggu Pasukan";
                 }
             } catch (error) {
-                tambahLog("⚠️ Gagal terhubung ke server Vercel.");
+                tambahLog("⚠️ Gagal sinkronisasi dengan markas.");
             }
         }
 
-        setInterval(ambilLokasi, 5000); // Cek setiap 5 detik
+        setInterval(ambilLokasi, 5000);
         ambilLokasi();
     </script>
 </body>
