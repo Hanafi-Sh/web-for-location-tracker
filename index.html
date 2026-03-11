@@ -7,48 +7,63 @@
     <style>
         body { margin: 0; padding: 0; font-family: sans-serif; }
         #map { width: 100vw; height: 100vh; }
-        .info { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 999; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        .info { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 999; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-weight: bold;}
+        /* Kotak Terminal Baru */
+        #logBox { position: absolute; bottom: 20px; left: 20px; z-index: 999; background: rgba(0,0,0,0.8); color: #00FF00; padding: 10px; font-family: monospace; font-size: 12px; border-radius: 5px; width: 300px; height: 150px; overflow-y: auto; border: 1px solid #00FF00; }
     </style>
 </head>
 <body>
-    <div class="info" id="status">Mencari sinyal target...</div>
+    <div class="info" id="status">🔴 Sistem Offline / Menunggu Data</div>
+    <div id="logBox">
+        <div>> Memulai Radar Vercel...</div>
+        <div>> Menunggu sinyal dari target...</div>
+    </div>
     <div id="map"></div>
 
     <script>
-        // Memulai Peta (Set awal di Jakarta)
         var map = L.map('map').setView([-6.200000, 106.816666], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
         var marker;
+        var waktuTerakhir = null;
 
-        // Fungsi untuk mengambil data dari API Vercel kita sendiri
+        function tambahLog(pesan) {
+            const logBox = document.getElementById('logBox');
+            const waktu = new Date().toLocaleTimeString('id-ID');
+            logBox.innerHTML += `<div>[${waktu}] ${pesan}</div>`;
+            logBox.scrollTop = logBox.scrollHeight; // Auto scroll ke bawah
+        }
+
         async function ambilLokasi() {
             try {
                 const response = await fetch('/api/lokasi');
                 const data = await response.json();
 
                 if (data.lat && data.lon) {
-                    document.getElementById('status').innerText = `Target Terlacak! Terakhir update: ${data.waktu}`;
-                    
-                    // Pindahkan peta dan marker ke lokasi baru
-                    map.setView([data.lat, data.lon], 16);
-                    if (marker) {
-                        marker.setLatLng([data.lat, data.lon]);
-                    } else {
-                        marker = L.marker([data.lat, data.lon]).addTo(map);
+                    // Cek apakah ini data baru atau data lama
+                    if (data.waktu !== waktuTerakhir) {
+                        waktuTerakhir = data.waktu;
+                        document.getElementById('status').innerText = `🟢 TARGET TERKUNCI! (Update: ${data.waktu})`;
+                        document.getElementById('status').style.color = "green";
+                        
+                        tambahLog(`Sinyal diterima! Lat: ${data.lat.toFixed(4)}, Lon: ${data.lon.toFixed(4)}`);
+                        
+                        map.setView([data.lat, data.lon], 16);
+                        if (marker) {
+                            marker.setLatLng([data.lat, data.lon]);
+                        } else {
+                            marker = L.marker([data.lat, data.lon]).addTo(map);
+                        }
                     }
+                } else {
+                    tambahLog("Ping server... Data masih kosong.");
                 }
             } catch (error) {
-                console.error("Gagal mengambil data", error);
+                tambahLog("⚠️ Gagal terhubung ke server Vercel.");
             }
         }
 
-        // Refresh peta setiap 10 detik
-        setInterval(ambilLokasi, 10000);
-        ambilLokasi(); // Panggil sekali saat web pertama kali dibuka
+        setInterval(ambilLokasi, 5000); // Cek setiap 5 detik
+        ambilLokasi();
     </script>
 </body>
 </html>
