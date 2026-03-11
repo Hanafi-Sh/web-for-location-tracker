@@ -37,36 +37,43 @@
         async function ambilLokasi() {
             try {
                 const response = await fetch('/api/lokasi');
-                const dataPasukan = await response.json(); // Sekarang bentuknya objek banyak orang
+                const dataPasukan = await response.json(); 
                 
+                // --- TAMBAHAN BARU: Cek jika Vercel mengirim pesan error ---
+                if (dataPasukan.error) {
+                    tambahLog(`⚠️ Error Vercel: ${dataPasukan.error}`);
+                    return; // Hentikan proses agar peta tidak crash
+                }
+                // -----------------------------------------------------------
+
                 let jumlahPasukan = Object.keys(dataPasukan).length;
                 
                 if (jumlahPasukan > 0) {
                     document.getElementById('status').innerText = `🟢 MELACAK ${jumlahPasukan} TARGET AKTIF`;
                     document.getElementById('status').style.color = "green";
 
-                    // Looping (memeriksa) setiap orang di dalam data
                     for (const idTarget in dataPasukan) {
                         const info = dataPasukan[idTarget];
                         
-                        if (semuaMarker[idTarget]) {
-                            // Jika marker sudah ada, geser saja titiknya
-                            semuaMarker[idTarget].setLatLng([info.lat, info.lon]);
-                            semuaMarker[idTarget].getPopup().setContent(`<b>${info.nama}</b><br>Update: ${info.waktu}`);
-                        } else {
-                            // Jika ini target baru, buat titik baru di peta
-                            const markerBaru = L.marker([info.lat, info.lon]).addTo(map);
-                            markerBaru.bindPopup(`<b>${info.nama}</b><br>Update: ${info.waktu}`).openPopup();
-                            semuaMarker[idTarget] = markerBaru;
-                            
-                            tambahLog(`+ Target baru terdeteksi: ${info.nama}`);
+                        // Cek apakah koordinatnya benar-benar ada angkanya
+                        if (info.lat && info.lon) {
+                            if (semuaMarker[idTarget]) {
+                                semuaMarker[idTarget].setLatLng([info.lat, info.lon]);
+                                semuaMarker[idTarget].getPopup().setContent(`<b>${info.nama}</b><br>Update: ${info.waktu}`);
+                            } else {
+                                const markerBaru = L.marker([info.lat, info.lon]).addTo(map);
+                                markerBaru.bindPopup(`<b>${info.nama}</b><br>Update: ${info.waktu}`).openPopup();
+                                semuaMarker[idTarget] = markerBaru;
+                                tambahLog(`+ Target terdeteksi: ${info.nama}`);
+                            }
                         }
                     }
                 } else {
-                    document.getElementById('status').innerText = "🔴 Radar Aktif / Menunggu User";
+                    document.getElementById('status').innerText = "🔴 Radar Aktif / Menunggu Pasukan";
                 }
             } catch (error) {
-                tambahLog("⚠️ Gagal sinkronisasi.");
+                // Sekarang log akan menampilkan pesan error aslinya dari sistem
+                tambahLog(`⚠️ Sistem Peta Error: ${error.message}`);
             }
         }
 
