@@ -160,7 +160,7 @@
                 const boxAktif = document.getElementById('aktifTab');
                 let htmlAktif = '';
                 
-                let jumlahAktif = Object.keys(dataPerangkat).length;
+                let jumlahAktif = Object.values(dataPerangkat).filter(info => info && info.lat && info.lon).length;
                 document.getElementById('statusBadge').innerText = jumlahAktif > 0 ? `🟢 ${jumlahAktif} TARGET AKTIF` : `🔴 MENUNGGU TARGET`;
                 document.getElementById('statusBadge').style.color = jumlahAktif > 0 ? "#00ff00" : "red";
 
