@@ -23,8 +23,6 @@
     <script>
         var map = L.map('map').setView([-6.200000, 106.816666], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-        
-        // Memori untuk menyimpan banyak marker
         var semuaMarker = {}; 
 
         function tambahLog(pesan) {
@@ -37,25 +35,22 @@
         async function ambilLokasi() {
             try {
                 const response = await fetch('/api/lokasi');
-                const dataPasukan = await response.json(); 
+                const dataPerangkat = await response.json(); 
                 
-                // --- TAMBAHAN BARU: Cek jika Vercel mengirim pesan error ---
-                if (dataPasukan.error) {
-                    tambahLog(`⚠️ Error Vercel: ${dataPasukan.error}`);
-                    return; // Hentikan proses agar peta tidak crash
+                if (dataPerangkat.error) {
+                    tambahLog(`⚠️ Error: ${dataPerangkat.error}`);
+                    return; 
                 }
-                // -----------------------------------------------------------
 
-                let jumlahPasukan = Object.keys(dataPasukan).length;
+                let jumlahPerangkat = Object.keys(dataPerangkat).length;
                 
-                if (jumlahPasukan > 0) {
-                    document.getElementById('status').innerText = `🟢 MELACAK ${jumlahPasukan} TARGET AKTIF`;
+                if (jumlahPerangkat > 0) {
+                    document.getElementById('status').innerText = `🟢 MELACAK ${jumlahPerangkat} PERANGKAT AKTIF`;
                     document.getElementById('status').style.color = "green";
 
-                    for (const idTarget in dataPasukan) {
-                        const info = dataPasukan[idTarget];
+                    for (const idTarget in dataPerangkat) {
+                        const info = dataPerangkat[idTarget];
                         
-                        // Cek apakah koordinatnya benar-benar ada angkanya
                         if (info.lat && info.lon) {
                             if (semuaMarker[idTarget]) {
                                 semuaMarker[idTarget].setLatLng([info.lat, info.lon]);
@@ -64,16 +59,15 @@
                                 const markerBaru = L.marker([info.lat, info.lon]).addTo(map);
                                 markerBaru.bindPopup(`<b>${info.nama}</b><br>Update: ${info.waktu}`).openPopup();
                                 semuaMarker[idTarget] = markerBaru;
-                                tambahLog(`+ Target terdeteksi: ${info.nama}`);
+                                tambahLog(`+ Perangkat terdeteksi: ${info.nama}`);
                             }
                         }
                     }
                 } else {
-                    document.getElementById('status').innerText = "🔴 Radar Aktif / Menunggu Pasukan";
+                    document.getElementById('status').innerText = "🔴 Sistem Aktif / Menunggu Data Perangkat";
                 }
             } catch (error) {
-                // Sekarang log akan menampilkan pesan error aslinya dari sistem
-                tambahLog(`⚠️ Sistem Peta Error: ${error.message}`);
+                tambahLog(`⚠️ Koneksi Peta Error: ${error.message}`);
             }
         }
 
